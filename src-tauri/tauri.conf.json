@@ -1,0 +1,55 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "ASAP",
+  "version": "0.2.0",
+  "identifier": "id.tuvnord.ade",
+  "build": {
+    "frontendDist": "../src"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "ASAP — Agent Supervision & Approval Platform",
+        "width": 1440,
+        "height": 900
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis"
+    ],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "publisher": "TUV Nord Indonesia DTIT",
+    "shortDescription": "ASAP - Agent Supervision & Approval Platform",
+    "resources": {
+      "../sidecar/server.mjs": "sidecar/server.mjs",
+      "../sidecar/folders.mjs": "sidecar/folders.mjs",
+      "../sidecar/tasks.mjs": "sidecar/tasks.mjs",
+      "../sidecar/package.json": "sidecar/package.json",
+      "../sidecar/node_modules/": "sidecar/node_modules/",
+      "resources/node/node.exe": "node/node.exe",
+      "../sidecar/auth.mjs": "sidecar/auth.mjs",
+      "../sidecar/files.mjs": "sidecar/files.mjs",
+      "../sidecar/terminal.mjs": "sidecar/terminal.mjs",
+      "../sidecar/git.mjs": "sidecar/git.mjs",
+      "../sidecar/vault.mjs": "sidecar/vault.mjs"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
+  }
+}

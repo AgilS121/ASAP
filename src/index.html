@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ASAP</title>
+    <link rel="icon" href="assets/asap-icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="vendor/xterm.css" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="vendor/xterm.js"></script>
+    <script src="vendor/addon-fit.js"></script>
+    <script type="module" src="/main.js" defer></script>
+  </head>
+  <body>
+    <header class="top">
+      <div class="title">
+        <img class="brand-icon" src="assets/asap-icon.svg" alt="" width="28" height="28" />
+        <span class="brand">ASAP</span>
+        <span class="muted">Agent Supervision &amp; Approval Platform</span>
+      </div>
+      <div class="pills">
+        <span id="sidecar" class="pill"><span class="dot"></span><span id="sidecar-text">menghubungkan…</span></span>
+        <button id="auth-pill" class="pill" hidden></button>
+        <span class="pill"><span class="dot blue"></span><span id="agents-active">0 agent aktif</span></span>
+        <span id="review-pill" class="pill warn" hidden>0 perlu review</span>
+        <button id="term-toggle" class="pill" title="Tampilkan / sembunyikan terminal (Ctrl+`)">›_ Terminal</button>
+      </div>
+    </header>
+
+    <main class="ade">
+      <!-- 1. FOLDER -->
+      <section class="col">
+        <div class="hd">
+          <span>Folder</span>
+          <button id="refresh" class="icon-btn" title="Muat ulang status git" aria-label="Muat ulang">⟳</button>
+        </div>
+        <div id="folder-list" class="list"></div>
+        <div class="foot">
+          <button id="add-open" class="dashed">+ Tambah folder</button>
+          <form id="add-form" class="add-form" hidden>
+            <input id="add-path" placeholder="Repo atau folder induk, mis. D:\HSD\central" autocomplete="off" />
+            <input id="add-name" placeholder="Nama (opsional)" autocomplete="off" />
+            <div id="add-error" class="err" hidden></div>
+            <div class="row">
+              <button type="submit" class="primary">Simpan</button>
+              <button type="button" id="add-cancel" class="ghost">Batal</button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <!-- 2. AGENTIC RUNNING -->
+      <section class="col">
+        <div class="hd"><span>Agentic Running</span><span id="running-scope" class="hd-right"></span></div>
+        <div class="task-new">
+          <button id="task-open" class="primary block" disabled>+ Task baru</button>
+          <form id="task-form" class="task-form" hidden>
+            <div class="muted small-label">Project: <span id="task-target"></span></div>
+            <input id="task-title" placeholder="Judul task, mis. Validasi tanggal di form order" maxlength="80" autocomplete="off" />
+            <textarea id="task-prompt" rows="5" placeholder="Instruksi untuk agent: apa yang harus dikerjakan, file/modul mana, batasannya."></textarea>
+            <select id="task-model">
+              <option value="sonnet" selected>Sonnet 5.5 (default, hemat kuota)</option>
+              <option value="opus">Opus 5.5 (paling pintar)</option>
+              <option value="haiku">Haiku 4.5 (paling ringan)</option>
+            </select>
+            <div class="muted note">Agent bekerja di git worktree terpisah dari commit terakhir — perubahan yang belum di-commit tidak ikut.</div>
+            <div id="task-error" class="err" hidden></div>
+            <div class="row">
+              <button type="submit" id="task-submit" class="primary">Jalankan agent</button>
+              <button type="button" id="task-cancel" class="ghost">Batal</button>
+            </div>
+          </form>
+        </div>
+        <div id="task-list" class="list"></div>
+      </section>
+
+      <!-- 3. PERUBAHAN -->
+      <section class="col">
+        <div class="hd"><span id="chg-title">Perubahan</span><span id="chg-status" class="hd-right"></span></div>
+        <div id="col3-tabs" class="col-tabs" hidden>
+          <button data-tab="files" class="col-tab">Jelajah</button>
+          <button data-tab="git" class="col-tab">Git</button>
+        </div>
+        <div id="pane-files" class="pane">
+          <div id="explorer" class="explorer" hidden>
+            <div class="ex-bar">
+              <button id="ex-toggle" class="ex-root" title="Buka / tutup pohon file"><span id="ex-chev" class="chev">▾</span><span id="ex-label"></span></button>
+              <button id="ex-term" class="icon-btn" title="Buka terminal di folder ini">›_</button>
+              <button id="ex-refresh" class="icon-btn" title="Muat ulang pohon file" aria-label="Muat ulang">⟳</button>
+            </div>
+            <div id="ex-pane" class="ex-pane">
+              <input id="ex-filter" placeholder="Filter file… (mis. OrderController)" autocomplete="off" />
+              <div id="ex-tree" class="ex-tree"></div>
+            </div>
+          </div>
+          <div id="chg-tabs" class="tabs" hidden></div>
+          <div id="chg-body" class="diff"></div>
+          <div id="chg-foot" class="chg-foot" hidden></div>
+        </div>
+        <div id="pane-git" class="pane" hidden>
+          <div class="git-bar">
+            <span id="git-branch" class="git-branch"></span>
+            <label class="git-all"><input type="checkbox" id="git-all" /> Semua branch</label>
+            <button id="git-refresh" class="icon-btn" title="Muat ulang history & status" aria-label="Muat ulang">⟳</button>
+          </div>
+          <div id="git-graph" class="git-graph"></div>
+          <div id="git-detail" class="git-detail"></div>
+        </div>
+      </section>
+
+      <!-- 4. SARAN CLAUDE -->
+      <section class="col">
+        <div class="hd"><span>Saran Claude</span><span id="perm-count" class="hd-right"></span></div>
+        <div id="perm-list" class="list"></div>
+      </section>
+    </main>
+
+    <!-- TERMINAL (shell milik dev, bukan agent) -->
+    <section id="term-dock" class="term-dock" hidden>
+      <div id="term-grip" class="term-grip" title="Tarik untuk mengubah tinggi"></div>
+      <div class="term-bar">
+        <div id="term-tabs" class="term-tabs"></div>
+        <button id="term-new" class="icon-btn" title="Terminal baru di folder/worktree yang dipilih">+</button>
+        <button id="term-hide" class="icon-btn" title="Sembunyikan (Ctrl+`)">▾</button>
+      </div>
+      <div id="term-views" class="term-views"></div>
+    </section>
+  </body>
+</html>
