@@ -44,7 +44,8 @@
       "../sidecar/files.mjs": "sidecar/files.mjs",
       "../sidecar/terminal.mjs": "sidecar/terminal.mjs",
       "../sidecar/git.mjs": "sidecar/git.mjs",
-      "../sidecar/vault.mjs": "sidecar/vault.mjs"
+      "../sidecar/vault.mjs": "sidecar/vault.mjs",
+      "../sidecar/todos.mjs": "sidecar/todos.mjs"
     },
     "windows": {
       "nsis": {

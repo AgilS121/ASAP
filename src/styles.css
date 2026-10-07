@@ -424,3 +424,48 @@ button.small { min-height: 32px; padding: 0 12px; border-radius: 6px; font-size:
 .vault-warn { color: var(--red); }
 .vault-bugs { margin: 0; padding-left: 18px; }
 .vault-note { color: var(--muted); font-size: 11px; border-top: 1px solid var(--line); padding-top: 6px; }
+
+/* ---------- Todo ---------- */
+#todo-toggle { gap: 6px; }
+#todo-toggle.ok { border-color: var(--blue); color: var(--text); }
+#todo-toggle.warn-soft { border-color: var(--red); }
+.todo-count { font-size: 12px; color: var(--muted); }
+.todo-due { padding: 0 7px; border-radius: 999px; background: var(--red); color: #2A0806; font-size: 11px; font-weight: 700; line-height: 18px; }
+.todo-due[hidden] { display: none; }
+.todo-drawer {
+  position: fixed; top: 68px; right: 12px; bottom: 12px; z-index: 30; width: 380px; max-width: calc(100vw - 24px);
+  display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line-strong);
+  border-radius: 10px; box-shadow: -12px 0 32px rgba(0, 0, 0, .45); overflow: hidden;
+}
+.todo-drawer[hidden] { display: none; }
+.todo-form { padding: 12px 12px 6px; display: flex; flex-direction: column; gap: 6px; flex: none; }
+.todo-form input, .todo-edit {
+  width: 100%; min-height: 38px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--text); font: inherit; font-size: 13px;
+}
+.todo-form input:focus, .todo-edit:focus { outline: none; border-color: var(--blue); }
+.todo-preview { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 22px; }
+.todo-hint { margin-left: auto; font-size: 11px; color: var(--muted); }
+.todo-chip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line-strong);
+  font-size: 11px; color: var(--text-2); white-space: nowrap;
+}
+.todo-chip.time { border-color: var(--blue); color: #8EC5FF; }
+.todo-chip.time.late { border-color: var(--red); color: var(--red); background: #2A1717; }
+.todo-chip.proj { color: var(--muted); }
+.todo-chip.muted { color: var(--muted); border-style: dashed; }
+.chip-x { padding: 0 2px; border: 0; background: transparent; color: inherit; font-size: 12px; line-height: 1; opacity: .7; }
+.chip-x:hover { opacity: 1; }
+.todo-filters { display: flex; align-items: center; gap: 6px; padding: 4px 12px 10px; border-bottom: 1px solid var(--line); flex: none; }
+.todo-filters .git-all { margin-left: auto; }
+.todo-list { flex: 1; overflow: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+.todo-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 6px 8px 10px; border-radius: 8px; border: 1px solid transparent; }
+.todo-item:hover { background: var(--card); }
+.todo-item.overdue { border-color: #5a2a2a; background: #241616; }
+.todo-item input[type="checkbox"] { margin-top: 3px; flex: none; accent-color: var(--green); }
+.todo-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.todo-text { font-size: 13px; line-height: 1.45; color: var(--text); word-break: break-word; cursor: text; }
+.todo-item.done .todo-text { color: var(--muted); text-decoration: line-through; }
+.todo-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.todo-rm { visibility: hidden; flex: none; }
+.todo-item:hover .todo-rm { visibility: visible; }

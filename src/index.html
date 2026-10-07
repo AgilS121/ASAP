@@ -23,6 +23,7 @@
         <button id="auth-pill" class="pill" hidden></button>
         <span class="pill"><span class="dot blue"></span><span id="agents-active">0 agent aktif</span></span>
         <span id="review-pill" class="pill warn" hidden>0 perlu review</span>
+        <button id="todo-toggle" class="pill" title="Todo & pengingat (Ctrl+Shift+T)">☑ Todo <span id="todo-count" class="todo-count"></span><span id="todo-due" class="todo-due" hidden></span></button>
         <button id="term-toggle" class="pill" title="Tampilkan / sembunyikan terminal (Ctrl+`)">›_ Terminal</button>
       </div>
     </header>
@@ -114,6 +115,24 @@
         <div id="perm-list" class="list"></div>
       </section>
     </main>
+
+    <!-- TODO (laci kanan, default tertutup) -->
+    <aside id="todo-drawer" class="todo-drawer" hidden aria-label="Todo">
+      <div class="hd">
+        <span>Todo</span>
+        <button id="todo-close" class="icon-btn" title="Tutup (Esc)" aria-label="Tutup">×</button>
+      </div>
+      <form id="todo-form" class="todo-form" autocomplete="off">
+        <input id="todo-input" maxlength="500" placeholder="Tambah task… mis. deploy prod jam 5" />
+        <div id="todo-preview" class="todo-preview"></div>
+      </form>
+      <div class="todo-filters">
+        <button id="todo-f-all" class="seg on">Semua</button>
+        <button id="todo-f-proj" class="seg">Project terpilih</button>
+        <label class="git-all"><input type="checkbox" id="todo-show-done" /> Tampilkan selesai</label>
+      </div>
+      <div id="todo-list" class="todo-list"></div>
+    </aside>
 
     <!-- TERMINAL (shell milik dev, bukan agent) -->
     <section id="term-dock" class="term-dock" hidden>

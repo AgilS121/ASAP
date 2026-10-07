@@ -10,6 +10,7 @@ import { findFiles, listDir, readIn } from "./files.mjs";
 import { Terminals } from "./terminal.mjs";
 import * as gitOps from "./git.mjs";
 import { lookup as vaultLookup } from "./vault.mjs";
+import { Todos } from "./todos.mjs";
 
 // Port 0 = OS pilih port bebas → tidak bisa bentrok dengan sidecar sisa sesi lain.
 const PORT = Number(process.env.ADE_PORT || 0);
@@ -60,6 +61,8 @@ function fsRoot(m) {
 }
 const fsKey = (m) => (m.id ? m.id : `repo:${m.repo}`);
 const terminals = new Terminals();
+const todos = new Todos((items) => broadcast({ type: "todos", items }));
+todos.start();
 
 // state task + izin dikirim utuh; di-throttle karena agent bisa update berkali-kali per detik
 const tasks = new TaskManager(scheduleTasksBroadcast);
@@ -91,6 +94,9 @@ const handlers = {
   "fs:list": async (ws, m) => send(ws, { type: "dir", key: fsKey(m), ...(await listDir(fsRoot(m), m.dir)) }),
   "fs:read": async (ws, m) => send(ws, { type: "file", key: fsKey(m), ...readIn(fsRoot(m), m.path) }),
   "fs:find": async (ws, m) => send(ws, { type: "found", key: fsKey(m), q: m.q, items: await findFiles(fsRoot(m), m.q) }),
+  "todo:add": async (ws, m) => { todos.add(m); },
+  "todo:update": async (ws, m) => { todos.update(m.id, m.fields || {}); },
+  "todo:remove": async (ws, m) => { todos.remove(m.id); },
   "vault:lookup": async (ws, m) => {
     fsRoot(m); // validasi akses sama seperti pohon file
     // worktree task: note vault dicocokkan lewat repo asalnya (nama folder worktree = slug task)
@@ -129,6 +135,7 @@ wss.on("connection", (ws) => {
   send(ws, { type: "ready", node: process.version, sdk: sdkVersion });
   send(ws, tasksSnapshot());
   send(ws, { type: "auth", ...authStatus() });
+  send(ws, { type: "todos", items: todos.list() });
   ws.on("close", () => terminals.closeFor(ws));
   ws.on("message", async (raw) => {
     let msg;

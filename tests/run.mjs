@@ -58,7 +58,7 @@ function makeRepo() {
 function startSidecar() {
   return new Promise((ok, fail) => {
     const child = spawn(process.execPath, [join(ROOT, "sidecar", "server.mjs")], {
-      env: { ...process.env, APPDATA, ADE_DEV_TOKEN: TOKEN, ADE_PORT: "0" },
+      env: { ...process.env, APPDATA, ADE_DEV_TOKEN: TOKEN, ADE_PORT: "0", ASAP_NO_TOAST: "1", ASAP_TODO_TICK_MS: "500" },
       stdio: ["pipe", "pipe", "inherit"], windowsHide: true,
     });
     const t = setTimeout(() => fail(new Error("sidecar tidak siap dalam 15 detik")), 15000);
@@ -169,6 +169,49 @@ async function protocolTests(port) {
   c.ws.close();
 }
 
+async function todoTests(port) {
+  console.log("\nTodo & pengingat");
+  const { parseDue, dueLabel } = await import(new URL("../src/todo-parse.js", import.meta.url));
+  const now = new Date(2026, 9, 7, 13, 0); // Rabu 7 Okt 2026 13:00 waktu lokal
+  const at = (text) => { const r = parseDue(text, now); return r ? dueLabel(r.dueAt, now) : null; };
+  ok(at("deploy prod jam 5") === "hari ini 17:00", "parser: \"jam 5\" tanpa keterangan = 17:00", at("deploy prod jam 5"));
+  ok(at("cek log jam 9 malam") === "hari ini 21:00", "parser: \"jam 9 malam\" = 21:00");
+  ok(at("rapat besok 09:30") === "besok 09:30", "parser: \"besok 09:30\"");
+  ok(at("meeting jam 10") === "besok 10:00", "parser: jam yang sudah lewat → besok");
+  ok(at("backup jam 12 malam") === "besok 00:00", "parser: \"jam 12 malam\" = 00:00");
+  ok(at("rilis versi 0.3.0 dan v1.10") === null && at("jam 25") === null, "parser: angka versi / jam tidak valid diabaikan");
+
+  const c = client(port);
+  await c.open;
+  const lastTodos = () => c.wait((m) => m.type === "todos");
+  const first = await lastTodos(); // dikirim saat koneksi dibuka
+  ok(Array.isArray(first.items), "todos dikirim saat UI terhubung");
+  const past = new Date(Date.now() - 60_000).toISOString();
+  c.ws.send(JSON.stringify({ type: "todo:add", text: "deploy prod", dueAt: past, project: { name: "demo-repo", path: REPO } }));
+  let t = await lastTodos();
+  const item = t.items.find((x) => x.text === "deploy prod");
+  ok(item && item.project?.name === "demo-repo" && item.notified === false, "todo:add menyimpan teks, jam, label project");
+  t = await c.wait((m) => m.type === "todos" && m.items.find((x) => x.id === item?.id)?.notified);
+  ok(!!t, "pengingat terkirim untuk task yang jatuh tempo (notified = true)");
+  c.ws.send(JSON.stringify({ type: "todo:update", id: item.id, fields: { dueAt: new Date(Date.now() + 3_600_000).toISOString() } }));
+  t = await lastTodos();
+  ok(t.items.find((x) => x.id === item.id)?.notified === false, "ganti jam → pengingat aktif lagi");
+  c.ws.send(JSON.stringify({ type: "todo:update", id: item.id, fields: { done: true } }));
+  t = await lastTodos();
+  ok(t.items.find((x) => x.id === item.id)?.done === true, "todo:update menandai selesai");
+  const empty = await c.call({ type: "todo:add", text: "   " }, () => false);
+  ok(empty.type === "error" && /kosong/.test(empty.error), "todo:add menolak teks kosong");
+  const saved = JSON.parse(readFileSync(join(APPDATA, "ade", "todos.json"), "utf8")).items;
+  ok(saved.some((x) => x.id === item.id && x.done), "todo tersimpan di todos.json");
+  c.ws.send(JSON.stringify({ type: "todo:remove", id: item.id }));
+  t = await lastTodos();
+  ok(!t.items.some((x) => x.id === item.id), "todo:remove menghapus task");
+  // satu task lewat waktu untuk dicek di tes UI
+  c.ws.send(JSON.stringify({ type: "todo:add", text: "cek log server", dueAt: past, project: null }));
+  await lastTodos();
+  c.ws.close();
+}
+
 // ---------- 3. UI lewat Edge headless ----------
 function serveUi(port) {
   const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png" };
@@ -243,6 +286,18 @@ async function uiTests(sidecarPort) {
     await cmd("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
     ok(await until(`[...document.querySelectorAll('.ade>.col')].filter(c=>c.offsetWidth>0).length===4`), "Esc keluar dari mode fokus");
 
+    // Todo: tertutup saat awal, Ctrl+Shift+T membuka, pratinjau jam, simpan
+    ok(await ev(`document.getElementById('todo-drawer').hidden && document.getElementById('todo-due').textContent.includes('1')`), "Todo tertutup saat awal, badge \"lewat\" tampil");
+    await cmd("Input.dispatchKeyEvent", { type: "keyDown", key: "T", code: "KeyT", windowsVirtualKeyCode: 84, modifiers: 2 | 8 });
+    ok(await until(`!document.getElementById('todo-drawer').hidden`), "Ctrl+Shift+T membuka laci Todo");
+    await ev(`document.getElementById('todo-input').focus()`);
+    await cmd("Input.insertText", { text: "deploy prod jam 5" });
+    ok(await until(`/⏰ (hari ini|besok) 17:00/.test(document.getElementById('todo-preview').textContent)`), "pratinjau membaca \"jam 5\" sebagai 17:00", await ev(`document.getElementById('todo-preview').textContent`));
+    await cmd("Input.dispatchKeyEvent", { type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13, text: "\r" });
+    ok(await until(`[...document.querySelectorAll('.todo-item')].some(r=>r.textContent.includes('deploy prod jam 5') && r.textContent.includes('17:00'))`), "task tersimpan dan tampil dengan jamnya");
+    ok(await ev(`!!document.querySelector('.todo-item.overdue')`), "task lewat waktu ditandai merah");
+    await ev(`document.getElementById('todo-close').click()`);
+
     await ev(`document.getElementById('term-toggle').click()`);
     ok(await until(`/PS .*demo-repo>/.test(document.querySelector('.xterm-rows')?.innerText||'')`, 10000), "terminal terbuka di folder repo");
     ok(errors.length === 0, "tidak ada error JavaScript di halaman", errors.join(" | "));
@@ -260,6 +315,7 @@ try {
   console.log(`Repo dummy: ${REPO}`);
   sidecar = await startSidecar();
   await protocolTests(sidecar.port);
+  await todoTests(sidecar.port);
   await uiTests(sidecar.port);
 } catch (e) {
   failed++;

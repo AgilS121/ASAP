@@ -1,3 +1,5 @@
+import { dueLabel, parseDue } from "./todo-parse.js";
+
 const $ = (id) => document.getElementById(id);
 
 const state = {
@@ -49,6 +51,8 @@ function handle(m) {
     renderTasks();
     renderPermissions();
     if (!chg.revising) renderChanges(); // jangan hapus catatan revisi yang sedang diketik
+  } else if (m.type === "todos") {
+    handleTodos(m);
   } else if (m.type === "auth") {
     renderAuth(m);
   } else if (m.type === "file") {
@@ -166,6 +170,7 @@ function folderItem(f) {
     // klik folder = jelajahi folder itu: kolom Perubahan pindah dari task ke pohon repo ini
     if (state.reviewId) { state.reviewId = null; renderTasks(); }
     renderFolders(); renderTaskTarget(); renderChanges();
+    renderTodo(); renderTodoPreview(); // label project & filter Todo ikut project terpilih
   });
 
   const main = el("div", "folder-main");
@@ -1526,6 +1531,184 @@ $("git-refresh").addEventListener("click", () => {
   gitv.error = gitv.notice = null;
   loadGit(target);
 });
+
+// ---------- Todo (laci kanan, default tertutup) + pengingat ----------
+const todo = {
+  items: [],
+  filter: "all",      // "all" | "project"
+  showDone: false,
+  noTime: false,      // dev membuang jam hasil tebakan di pratinjau
+  noProject: false,   // dev membuang label project di pratinjau
+  editing: null,      // id task yang sedang diedit
+};
+try { todo.showDone = localStorage.getItem("ade.todoShowDone") === "1"; } catch {}
+
+const isOverdue = (x, now = Date.now()) => !x.done && x.dueAt && Date.parse(x.dueAt) <= now;
+
+function todoProject() {
+  const sel = selectedProject();
+  return sel ? { name: sel.name, path: sel.path } : null;
+}
+
+function handleTodos(m) {
+  todo.items = m.items || [];
+  renderTodo();
+}
+
+function renderTodoPill() {
+  const open = todo.items.filter((x) => !x.done).length;
+  const due = todo.items.filter((x) => isOverdue(x)).length;
+  $("todo-count").textContent = open ? String(open) : "";
+  $("todo-due").hidden = !due;
+  $("todo-due").textContent = due ? `${due} lewat` : "";
+  $("todo-toggle").classList.toggle("warn-soft", !!due);
+  $("todo-toggle").classList.toggle("ok", !$("todo-drawer").hidden);
+}
+
+function renderTodoPreview() {
+  const box = $("todo-preview");
+  box.replaceChildren();
+  const text = $("todo-input").value.trim();
+  if (!text) { todo.noTime = todo.noProject = false; return; }
+  const due = todo.noTime ? null : parseDue(text);
+  const proj = todo.noProject ? null : todoProject();
+  const chip = (cls, label, title, onRemove) => {
+    const c = el("span", `todo-chip ${cls}`, label);
+    c.title = title;
+    if (onRemove) {
+      const x = el("button", "chip-x", "×");
+      x.type = "button";
+      x.title = "Buang";
+      x.addEventListener("click", () => { onRemove(); renderTodoPreview(); $("todo-input").focus(); });
+      c.append(x);
+    }
+    box.append(c);
+  };
+  if (due) chip("time", `⏰ ${dueLabel(due.dueAt)}${due.rolled ? " (jam itu sudah lewat hari ini)" : ""}`, "Waktu pengingat yang terbaca dari teks", () => { todo.noTime = true; });
+  else if (todo.noTime) chip("muted", "tanpa pengingat", "Klik × di sini untuk membaca jam lagi", () => { todo.noTime = false; });
+  if (proj) chip("proj", proj.name, "Label project terpilih", () => { todo.noProject = true; });
+  box.append(el("span", "todo-hint", "Enter untuk simpan"));
+}
+
+function renderTodo() {
+  renderTodoPill();
+  const list = $("todo-list");
+  if ($("todo-drawer").hidden) return;
+  const editingInput = list.querySelector(".todo-edit");
+  const editFocus = editingInput && document.activeElement === editingInput ? editingInput.selectionStart : null;
+  list.replaceChildren();
+  $("todo-f-all").classList.toggle("on", todo.filter === "all");
+  $("todo-f-proj").classList.toggle("on", todo.filter === "project");
+  $("todo-show-done").checked = todo.showDone;
+
+  const sel = selectedProject();
+  let items = todo.items.filter((x) => todo.showDone || !x.done);
+  if (todo.filter === "project") items = items.filter((x) => sel && x.project && normPath(x.project.path) === normPath(sel.path));
+  // belum selesai dulu; yang ada jam diurut paling dekat; sisanya urut dibuat
+  items.sort((a, b) => (a.done - b.done)
+    || ((a.dueAt ? 0 : 1) - (b.dueAt ? 0 : 1))
+    || (a.dueAt && b.dueAt ? Date.parse(a.dueAt) - Date.parse(b.dueAt) : 0)
+    || Date.parse(a.createdAt) - Date.parse(b.createdAt));
+
+  if (!items.length) {
+    const empty = el("div", "empty small");
+    empty.append(el("strong", null, todo.filter === "project" ? "Tidak ada task untuk project ini." : "Belum ada task."),
+      el("span", null, "Ketik di atas, mis. \"deploy prod jam 5\" — jam dikenali otomatis dan diingatkan lewat notifikasi Windows."));
+    list.append(empty);
+  }
+  for (const x of items) list.append(todoItem(x));
+  const again = list.querySelector(".todo-edit");
+  if (again && editFocus !== null) { again.focus(); again.setSelectionRange(editFocus, editFocus); }
+}
+
+function todoItem(x) {
+  const row = el("div", "todo-item" + (x.done ? " done" : "") + (isOverdue(x) ? " overdue" : ""));
+  const cb = el("input");
+  cb.type = "checkbox";
+  cb.checked = x.done;
+  cb.title = x.done ? "Tandai belum selesai" : "Tandai selesai";
+  cb.addEventListener("change", () => request({ type: "todo:update", id: x.id, fields: { done: cb.checked } }));
+  const main = el("div", "todo-main");
+  if (todo.editing === x.id) {
+    const input = el("input", "todo-edit");
+    input.value = x.text;
+    const finish = (save) => {
+      todo.editing = null;
+      const text = input.value.trim();
+      if (save && text && text !== x.text) {
+        // teks diubah → jam dibaca ulang dari teks baru (tidak ada jam = pengingat lama tetap)
+        const due = parseDue(text);
+        request({ type: "todo:update", id: x.id, fields: due ? { text, dueAt: due.dueAt } : { text } });
+      } else renderTodo();
+    };
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); finish(true); }
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); finish(false); }
+    });
+    input.addEventListener("blur", () => todo.editing === x.id && finish(true));
+    main.append(input);
+    setTimeout(() => { if (document.activeElement !== input) input.focus(); }, 0);
+  } else {
+    const text = el("div", "todo-text", x.text);
+    text.title = "Double-click untuk edit";
+    text.addEventListener("dblclick", () => { todo.editing = x.id; renderTodo(); });
+    main.append(text);
+  }
+  const meta = el("div", "todo-meta");
+  if (x.dueAt) {
+    const t = el("span", "todo-chip time" + (isOverdue(x) ? " late" : ""), `⏰ ${dueLabel(x.dueAt)}`);
+    t.title = new Date(x.dueAt).toLocaleString("id-ID");
+    const clear = el("button", "chip-x", "×");
+    clear.title = "Hapus pengingat";
+    clear.addEventListener("click", () => request({ type: "todo:update", id: x.id, fields: { dueAt: null } }));
+    t.append(clear);
+    meta.append(t);
+  }
+  if (x.project) {
+    const p = el("span", "todo-chip proj", x.project.name);
+    p.title = x.project.path || "";
+    meta.append(p);
+  }
+  if (meta.childNodes.length) main.append(meta);
+  const rm = el("button", "icon-btn todo-rm", "×");
+  rm.title = "Hapus task";
+  rm.addEventListener("click", () => request({ type: "todo:remove", id: x.id }));
+  row.append(cb, main, rm);
+  return row;
+}
+
+function toggleTodo(show = $("todo-drawer").hidden) {
+  $("todo-drawer").hidden = !show;
+  renderTodo();
+  if (show) { renderTodoPreview(); $("todo-input").focus(); }
+}
+
+$("todo-toggle").addEventListener("click", () => toggleTodo());
+$("todo-close").addEventListener("click", () => toggleTodo(false));
+$("todo-input").addEventListener("input", renderTodoPreview);
+$("todo-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const text = $("todo-input").value.trim();
+  if (!text) return;
+  const due = todo.noTime ? null : parseDue(text);
+  request({ type: "todo:add", text, dueAt: due?.dueAt ?? null, project: todo.noProject ? null : todoProject() });
+  $("todo-input").value = "";
+  todo.noTime = todo.noProject = false;
+  renderTodoPreview();
+});
+$("todo-f-all").addEventListener("click", () => { todo.filter = "all"; renderTodo(); });
+$("todo-f-proj").addEventListener("click", () => { todo.filter = "project"; renderTodo(); });
+$("todo-show-done").addEventListener("change", () => {
+  todo.showDone = $("todo-show-done").checked;
+  try { localStorage.setItem("ade.todoShowDone", todo.showDone ? "1" : "0"); } catch {}
+  renderTodo();
+});
+window.addEventListener("keydown", (e) => {
+  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === "t") { e.preventDefault(); toggleTodo(); }
+  else if (e.key === "Escape" && !$("todo-drawer").hidden && e.target.closest?.("#todo-drawer") && !e.target.classList.contains("todo-edit")) toggleTodo(false);
+});
+// status "lewat" berubah seiring waktu walau tidak ada pesan dari sidecar
+setInterval(renderTodo, 30_000);
 
 // ---------- Mode fokus: 1 kartu tampil selebar layar ----------
 const COL_NAMES = ["Folder", "Agentic Running", "Perubahan", "Saran Claude"];

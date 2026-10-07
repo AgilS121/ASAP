@@ -98,6 +98,17 @@ Sidecar memakai `node` sistem + `sidecar/` di repo (belum di-bundle sebagai exte
 - **Tes**: `npm test` (repo dummy + APPDATA sementara, tidak menyentuh repo asli): protokol sidecar
   (folder, pohon, terminal, git, vault) + UI lewat Edge headless. `npm test -- --no-ui` untuk protokol saja.
 
+## Todo + pengingat (2026-10-07)
+- Tombol **☑ Todo** di header / Ctrl+Shift+T → laci kanan (default tertutup). Badge merah = task lewat waktu.
+- Ketik bebas, mis. `deploy prod jam 5`; jam dibaca `src/todo-parse.js` dan **dipratinjau sebelum disimpan**
+  (× di chip untuk membuang jam / label project). Aturan: `17:00`/`17.30` apa adanya; `jam 1–6` tanpa keterangan
+  = siang/sore; `pagi/siang/sore/malam`, `besok`, `lusa` dikenali; jam yang sudah lewat → besok.
+- Label project = project terpilih saat task dibuat; filter *Semua / Project terpilih*. Double-click untuk edit.
+- Disimpan sidecar di `%APPDATA%\ade\todos.json` (`sidecar/todos.mjs`). Pengingat dicek tiap 20 dtk →
+  notifikasi Windows lewat WinRT/PowerShell (tanpa paket). Hanya selama ASAP terbuka; yang terlewat dikirim
+  saat start. Build dev: pengirim notifikasi tampil "Windows PowerShell"; versi terpasang: atas nama ASAP.
+  Env tes: `ASAP_NO_TOAST=1`, `ASAP_TODO_TICK_MS`.
+
 ## Rilis & instalasi untuk tim DTIT
 **Build installer** (di laptop yang punya Node 22 + Rust):
 ```
